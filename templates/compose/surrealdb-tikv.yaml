@@ -1,3 +1,4 @@
+# SurrealDB + TiKV distributed cluster template for Coolify
 # documentation: https://surrealdb.com/docs/surrealdb/installation/running/tikv
 # slogan: Distributed SurrealDB cluster backed by TiKV key-value storage.
 # tags: database,surrealdb,tikv,distributed,cluster,nosql,sql,graph
