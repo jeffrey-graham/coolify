@@ -1,0 +1,69 @@
+# documentation: https://surrealdb.com/docs/surrealdb/installation/running/tikv
+# slogan: Distributed SurrealDB cluster backed by TiKV key-value storage.
+# tags: database,surrealdb,tikv,distributed,cluster,nosql,sql,graph
+# logo: svgs/surrealdb.svg
+# port: 8000
+
+services:
+  pd:
+    image: pingcap/pd:v8.1.0
+    command:
+      - --name=pd
+      - --data-dir=/data/pd
+      - --client-urls=http://0.0.0.0:2379
+      - --peer-urls=http://0.0.0.0:2380
+      - --advertise-client-urls=http://pd:2379
+      - --advertise-peer-urls=http://pd:2380
+      - --initial-cluster=pd=http://pd:2380
+    volumes:
+      - pd-data:/data/pd
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:2379/pd/api/v1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  tikv:
+    image: pingcap/tikv:v8.1.0
+    depends_on:
+      pd:
+        condition: service_healthy
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv:20160
+      - --status-addr=0.0.0.0:20180
+      - --data-dir=/data/tikv
+      - --pd=pd:2379
+    volumes:
+      - tikv-data:/data/tikv
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:20180/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  surrealdb:
+    image: surrealdb/surrealdb:v2
+    depends_on:
+      tikv:
+        condition: service_healthy
+    command:
+      - start
+      - --log=info
+      - --user=${SERVICE_USER_SURREAL:-root}
+      - --pass=${SERVICE_PASSWORD_SURREAL}
+      - tikv://pd:2379
+    environment:
+      - SERVICE_FQDN_SURREALDB_8000
+      - SURREAL_USER=${SERVICE_USER_SURREAL:-root}
+      - SURREAL_PASS=${SERVICE_PASSWORD_SURREAL}
+    healthcheck:
+      test: ["CMD", "/surreal", "is-ready", "--conn", "http://127.0.0.1:8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  pd-data:
+  tikv-data:
