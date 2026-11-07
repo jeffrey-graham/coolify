@@ -1337,6 +1337,16 @@ class Application extends BaseModel
         return $this->hasMany(ApplicationDeploymentQueue::class);
     }
 
+    public function serviceDatabases()
+    {
+        return $this->hasMany(ServiceDatabase::class, 'application_id');
+    }
+
+    public function scheduledBackups()
+    {
+        return $this->morphMany(ScheduledDatabaseBackup::class, 'database');
+    }
+
     public function destination()
     {
         return $this->morphTo();
