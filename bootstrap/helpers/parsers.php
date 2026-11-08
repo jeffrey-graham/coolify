@@ -2327,13 +2327,21 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
         }
         // Auto-inject .env file so Coolify environment variables are available inside containers
         // This makes Applications behave consistently with manual .env file usage
+        // Only auto-inject the shared project .env file for single-service compose stacks.
+        // In multi-service compose projects, .env contains variables from all services and is
+        // already used by Docker Compose for ${VAR} interpolation; injecting it into every
+        // container's env_file leaks secrets across unrelated containers (#7655).
         $existingEnvFiles = data_get($service, 'env_file');
-        $envFiles = collect(is_null($existingEnvFiles) ? [] : (is_array($existingEnvFiles) ? $existingEnvFiles : [$existingEnvFiles]))
-            ->push('.env')
-            ->unique()
-            ->values();
-
-        $payload['env_file'] = $envFiles;
+        $envFiles = collect(is_null($existingEnvFiles) ? [] : (is_array($existingEnvFiles) ? $existingEnvFiles : [$existingEnvFiles]));
+        if ($services->count() <= 1) {
+            $envFiles = $envFiles->push('.env');
+        }
+        $envFiles = $envFiles->unique()->values();
+        if ($envFiles->isNotEmpty()) {
+            $payload['env_file'] = $envFiles;
+        } else {
+            $payload->forget('env_file');
+        }
 
         // Inject commit-based image tag for services with build directive (for rollback support)
         // Only inject if service has build but no explicit image defined
@@ -3661,13 +3669,21 @@ function serviceParser(Service $resource): Collection
         }
         // Auto-inject .env file so Coolify environment variables are available inside containers
         // This makes Services behave consistently with Applications
+        // Only auto-inject the shared project .env file for single-service compose stacks.
+        // In multi-service compose projects, .env contains variables from all services and is
+        // already used by Docker Compose for ${VAR} interpolation; injecting it into every
+        // container's env_file leaks secrets across unrelated containers (#7655).
         $existingEnvFiles = data_get($service, 'env_file');
-        $envFiles = collect(is_null($existingEnvFiles) ? [] : (is_array($existingEnvFiles) ? $existingEnvFiles : [$existingEnvFiles]))
-            ->push('.env')
-            ->unique()
-            ->values();
-
-        $payload['env_file'] = $envFiles;
+        $envFiles = collect(is_null($existingEnvFiles) ? [] : (is_array($existingEnvFiles) ? $existingEnvFiles : [$existingEnvFiles]));
+        if ($services->count() <= 1) {
+            $envFiles = $envFiles->push('.env');
+        }
+        $envFiles = $envFiles->unique()->values();
+        if ($envFiles->isNotEmpty()) {
+            $payload['env_file'] = $envFiles;
+        } else {
+            $payload->forget('env_file');
+        }
 
         $parsedServices->put($serviceName, $payload);
     }
